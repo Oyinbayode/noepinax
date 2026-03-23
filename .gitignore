@@ -17,7 +17,6 @@ packages/agent/output/
 .claude/
 .playwright-mcp/
 PLAN-*.md
-pnpm-lock.yaml
 scripts/wallets/
 *.docx
 contracts/artifacts/
@@ -26,3 +25,4 @@ contracts/typechain-types/
 .interface-design/
 packages/dashboard/REDESIGN_PLAN.md
 packages/agent/logs/*.json
+.vercel
