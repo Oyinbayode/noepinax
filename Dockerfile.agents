@@ -1,0 +1,18 @@
+FROM node:20-slim
+
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/agent/package.json packages/agent/
+COPY scripts/ scripts/
+
+RUN pnpm install --frozen-lockfile
+
+COPY packages/shared/ packages/shared/
+COPY packages/agent/ packages/agent/
+
+CMD ["npx", "tsx", "scripts/run-agents-only.ts"]

@@ -11,6 +11,8 @@
     "seed": "tsx scripts/seed-agents.ts",
     "register": "tsx scripts/register-identities.ts",
     "start": "tsx scripts/run-agents.ts",
+    "start:agents": "tsx scripts/run-agents-only.ts",
+    "seed:remote": "tsx scripts/seed-remote.ts",
     "deploy:contracts": "cd contracts && npx hardhat run scripts/deploy.ts --network baseSepolia"
   },
   "devDependencies": {

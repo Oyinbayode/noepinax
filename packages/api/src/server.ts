@@ -37,6 +37,19 @@ app.ws("/ws", (ws) => {
 });
 
 // internal endpoints for agents to push data
+app.post("/internal/seed-agent", (req, res) => {
+  const { id, name, role, wallet_address, personality } = req.body;
+  const stmt = db.prepare(
+    `INSERT INTO agents (id, name, role, wallet_address, personality, status)
+     VALUES (?, ?, ?, ?, ?, 'idle')
+     ON CONFLICT(id) DO UPDATE SET
+       wallet_address = excluded.wallet_address,
+       personality = excluded.personality`
+  );
+  stmt.run(id, name, role, wallet_address, personality);
+  res.json({ ok: true });
+});
+
 app.post("/internal/events", (req, res) => {
   const { agent_id, cycle_id, phase, log_data } = req.body;
   const stmt = db.prepare(
