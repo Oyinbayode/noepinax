@@ -1,0 +1,30 @@
+{
+  "name": "@noepinax/agent",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@noepinax/shared": "workspace:*",
+    "viem": "^2.47.0",
+    "openai": "^4.80.0",
+    "sharp": "^0.33.0",
+    "pinata": "^1.5.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "zod": "^3.24.0",
+    "uuid": "^11.1.0",
+    "better-sqlite3": "^11.8.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0"
+  }
+}

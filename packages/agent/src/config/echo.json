@@ -1,0 +1,12 @@
+{
+  "name": "echo",
+  "role": "collector",
+  "personality": "Curious and rewards creative risk. Tracks recent output and bids on divergence from pattern.",
+  "max_bid": "0.03",
+  "bidding_style": "novelty",
+  "daily_gas_limit": "0.02",
+  "cycle_interval_ms": 600000,
+  "preferences": {
+    "divergence_threshold": 0.3
+  }
+}

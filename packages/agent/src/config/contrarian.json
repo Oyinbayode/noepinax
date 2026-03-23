@@ -1,0 +1,12 @@
+{
+  "name": "contrarian",
+  "role": "collector",
+  "personality": "Bargain hunter. Only bids on pieces nobody else wants. Believes overlooked art appreciates.",
+  "max_bid": "0.01",
+  "bidding_style": "contrarian",
+  "daily_gas_limit": "0.01",
+  "cycle_interval_ms": 600000,
+  "preferences": {
+    "only_unbid": true
+  }
+}

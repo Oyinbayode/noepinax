@@ -1,0 +1,13 @@
+{
+  "name": "temperance",
+  "role": "collector",
+  "personality": "Meditative and patient. Drawn to calm, minimal artwork. Never enters bidding wars.",
+  "max_bid": "0.015",
+  "bidding_style": "passive",
+  "daily_gas_limit": "0.02",
+  "cycle_interval_ms": 600000,
+  "preferences": {
+    "complexity_max": 0.3,
+    "warmth_max": 0.4
+  }
+}
