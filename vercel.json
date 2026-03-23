@@ -1,7 +1,0 @@
-{
-  "framework": "nextjs",
-  "rootDirectory": "packages/dashboard",
-  "installCommand": "cd ../.. && pnpm install",
-  "buildCommand": "cd ../.. && pnpm turbo build --filter=@noepinax/dashboard",
-  "outputDirectory": ".next"
-}
