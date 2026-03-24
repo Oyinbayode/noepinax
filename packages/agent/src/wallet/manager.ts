@@ -4,9 +4,10 @@ import {
   http,
   formatEther,
   parseEther,
+  nonceManager,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia, base } from "viem/chains";
+import { baseSepolia, base as baseMainnet } from "viem/chains";
 import { GasGuardrails } from "./guardrails.js";
 
 export class WalletManager {
@@ -18,7 +19,8 @@ export class WalletManager {
   readonly guardrails: GasGuardrails;
 
   constructor(privateKey: `0x${string}`, dailyGasLimit: string) {
-    this.account = privateKeyToAccount(privateKey);
+    const rawAccount = privateKeyToAccount(privateKey);
+    this.account = Object.assign(rawAccount, { nonceManager });
 
     const sepoliaRpc = process.env.ALCHEMY_API_KEY
       ? `https://base-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
@@ -38,13 +40,13 @@ export class WalletManager {
     });
 
     this.mainnetPublic = createPublicClient({
-      chain: base,
+      chain: baseMainnet,
       transport: http(mainnetRpc),
     });
 
     this.mainnetWallet = createWalletClient({
       account: this.account,
-      chain: base,
+      chain: baseMainnet,
       transport: http(mainnetRpc),
     });
 

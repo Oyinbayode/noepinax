@@ -38,15 +38,16 @@ app.ws("/ws", (ws) => {
 
 // internal endpoints for agents to push data
 app.post("/internal/seed-agent", (req, res) => {
-  const { id, name, role, wallet_address, personality } = req.body;
+  const { id, name, role, wallet_address, personality, erc8004_id } = req.body;
   const stmt = db.prepare(
-    `INSERT INTO agents (id, name, role, wallet_address, personality, status)
-     VALUES (?, ?, ?, ?, ?, 'idle')
+    `INSERT INTO agents (id, name, role, wallet_address, personality, erc8004_id, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'idle')
      ON CONFLICT(id) DO UPDATE SET
        wallet_address = excluded.wallet_address,
-       personality = excluded.personality`
+       personality = excluded.personality,
+       erc8004_id = COALESCE(excluded.erc8004_id, agents.erc8004_id)`
   );
-  stmt.run(id, name, role, wallet_address, personality);
+  stmt.run(id, name, role, wallet_address, personality, erc8004_id || null);
   res.json({ ok: true });
 });
 

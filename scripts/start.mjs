@@ -48,6 +48,17 @@ async function waitForApi(maxRetries = 30, delayMs = 2000) {
   throw new Error("API did not become ready");
 }
 
+async function fetchErc8004Id(address) {
+  try {
+    const res = await fetch(`https://8004scan.io/api/v1/agents?owner_address=${address}&limit=1`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.items?.[0]?.token_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function seedAgents() {
   const configDir = join(root, "packages", "agent", "dist", "config");
 
@@ -64,6 +75,8 @@ async function seedAgents() {
     const configFile = name === "noepinax" ? "artist.json" : `${name}.json`;
     const config = JSON.parse(readFileSync(join(configDir, configFile), "utf-8"));
 
+    const erc8004Id = await fetchErc8004Id(address);
+
     const res = await fetch(`${apiUrl}/internal/seed-agent`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -73,9 +86,10 @@ async function seedAgents() {
         role: config.role,
         wallet_address: address,
         personality: config.personality,
+        erc8004_id: erc8004Id,
       }),
     });
-    console.log(`[seed] ${name} (${config.role}) -> ${address} [${res.ok ? "ok" : res.status}]`);
+    console.log(`[seed] ${name} (${config.role}) -> ${address} [erc8004:#${erc8004Id ?? "?"}] [${res.ok ? "ok" : res.status}]`);
   }
 }
 
