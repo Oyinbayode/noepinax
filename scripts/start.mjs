@@ -11,6 +11,9 @@ const processes = [];
 
 const AGENT_NAMES = ["noepinax", "temperance", "fervor", "dusk", "contrarian", "echo"];
 
+let apiDied = false;
+let apiExitCode = null;
+
 function spawnProc(label, cmd, args, cwd, extraEnv = {}) {
   const child = spawn(cmd, args, {
     cwd,
@@ -22,8 +25,8 @@ function spawnProc(label, cmd, args, cwd, extraEnv = {}) {
   child.on("exit", (code) => {
     console.log(`[${label}] exited (${code})`);
     if (label === "api") {
-      console.error("[start] API process died, shutting down");
-      shutdown();
+      apiDied = true;
+      apiExitCode = code;
     }
   });
   processes.push(child);

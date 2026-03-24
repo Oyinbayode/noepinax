@@ -58,8 +58,37 @@ export class AgentLoop {
       if (this.config.role === "artist") {
         this.sequenceNumber = this.bootTokenId;
         this.logger.console.info({ sequenceNumber: this.sequenceNumber }, "Resumed sequence from chain");
+
+        // grant auction contract blanket approval once so we never need per-token approve
+        if (process.env.NOEPINAX_AUCTION_ADDRESS) {
+          await this.ensureAuctionApproval(artAddress, process.env.NOEPINAX_AUCTION_ADDRESS as `0x${string}`);
+        }
       }
     }
+  }
+
+  private async ensureAuctionApproval(artAddress: `0x${string}`, auctionAddress: `0x${string}`): Promise<void> {
+    const isApproved = await this.wallet.sepoliaPublic.readContract({
+      address: artAddress,
+      abi: [{ inputs: [{ name: "owner", type: "address" }, { name: "operator", type: "address" }], name: "isApprovedForAll", outputs: [{ name: "", type: "bool" }], stateMutability: "view", type: "function" }] as const,
+      functionName: "isApprovedForAll",
+      args: [this.wallet.address, auctionAddress],
+    });
+
+    if (isApproved) {
+      this.logger.console.info("Auction contract already approved");
+      return;
+    }
+
+    this.logger.console.info("Granting auction contract approval...");
+    const tx = await this.wallet.sepoliaWallet.writeContract({
+      address: artAddress,
+      abi: [{ inputs: [{ name: "operator", type: "address" }, { name: "approved", type: "bool" }], name: "setApprovalForAll", outputs: [], stateMutability: "nonpayable", type: "function" }] as const,
+      functionName: "setApprovalForAll",
+      args: [auctionAddress, true],
+    });
+    await this.wallet.sepoliaPublic.waitForTransactionReceipt({ hash: tx });
+    this.logger.console.info({ tx }, "Auction contract approved");
   }
 
   async start(): Promise<void> {

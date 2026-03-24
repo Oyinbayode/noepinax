@@ -3,19 +3,6 @@ import type { ToolCall } from "@noepinax/shared";
 import type { WalletManager } from "../../wallet/manager.js";
 import { AUCTION_DURATION_SECONDS } from "@noepinax/shared";
 
-const ERC721_APPROVE_ABI = [
-  {
-    inputs: [
-      { name: "to", type: "address" },
-      { name: "tokenId", type: "uint256" },
-    ],
-    name: "approve",
-    outputs: [],
-    stateMutability: "nonpayable",
-    type: "function",
-  },
-] as const;
-
 const AUCTION_ABI = [
   {
     inputs: [
@@ -78,16 +65,7 @@ export async function createAuction(
 
   const start = Date.now();
 
-  // approve NFT transfer
-  const approveTx = await wallet.sepoliaWallet.writeContract({
-    address: artAddress,
-    abi: ERC721_APPROVE_ABI,
-    functionName: "approve",
-    args: [auctionAddress, BigInt(tokenId)],
-  });
-  await wallet.sepoliaPublic.waitForTransactionReceipt({ hash: approveTx });
-
-  // create auction
+  // approval handled once at init via setApprovalForAll
   const reserveWei = parseEther(reservePriceEth);
   const createTx = await wallet.sepoliaWallet.writeContract({
     address: auctionAddress,
