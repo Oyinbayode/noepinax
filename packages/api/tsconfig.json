@@ -4,8 +4,8 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "types": ["node", "better-sqlite3"],
-    "module": "ESNext",
-    "moduleResolution": "bundler"
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
   },
   "include": ["src"]
 }

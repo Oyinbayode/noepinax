@@ -5,14 +5,31 @@ RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt
 
 WORKDIR /app
 
+# Copy workspace config and lockfile
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
 COPY packages/agent/package.json packages/agent/
-COPY scripts/ scripts/
 
 RUN pnpm install --frozen-lockfile
 
+# Copy source and build in dependency order
 COPY packages/shared/ packages/shared/
-COPY packages/agent/ packages/agent/
+RUN pnpm --filter @noepinax/shared build
 
-CMD ["npx", "tsx", "scripts/run-agents-only.ts"]
+COPY packages/api/ packages/api/
+RUN pnpm --filter @noepinax/api build
+
+COPY packages/agent/ packages/agent/
+RUN pnpm --filter @noepinax/agent build
+
+# Copy entrypoint
+COPY scripts/start.mjs scripts/start.mjs
+
+ENV NODE_ENV=production
+ENV API_PORT=10000
+ENV API_URL=http://localhost:10000
+
+EXPOSE 10000
+
+CMD ["node", "scripts/start.mjs"]
