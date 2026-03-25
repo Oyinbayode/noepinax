@@ -1,14 +1,28 @@
-import type Database from "better-sqlite3";
-import type BetterSqlite3 from "better-sqlite3";
+import type { Client, InValue } from "@libsql/client";
 
-type Queries = Record<string, BetterSqlite3.Statement>;
+type Args = InValue[] | Record<string, InValue>;
 
-export function createQueries(db: Database.Database): Queries {
+function resolveArgs(args: any[]): Args {
+  if (args.length === 1 && typeof args[0] === "object" && args[0] !== null && !Array.isArray(args[0])) {
+    return args[0];
+  }
+  return args;
+}
+
+export function query(db: Client, sql: string) {
+  return {
+    all: async (...args: any[]): Promise<any[]> => (await db.execute({ sql, args: resolveArgs(args) })).rows as any[],
+    get: async (...args: any[]): Promise<any> => (await db.execute({ sql, args: resolveArgs(args) })).rows[0] as any,
+    run: async (...args: any[]) => { await db.execute({ sql, args: resolveArgs(args) }); },
+  };
+}
+
+export function createQueries(db: Client) {
   return {
     // agents
-    getAllAgents: db.prepare("SELECT * FROM agents ORDER BY role, name"),
-    getAgent: db.prepare("SELECT * FROM agents WHERE id = ?"),
-    upsertAgent: db.prepare(`
+    getAllAgents: query(db, "SELECT * FROM agents ORDER BY role, name"),
+    getAgent: query(db, "SELECT * FROM agents WHERE id = ?"),
+    upsertAgent: query(db, `
       INSERT INTO agents (id, name, role, erc8004_id, ens_name, wallet_address, personality, status)
       VALUES (@id, @name, @role, @erc8004_id, @ens_name, @wallet_address, @personality, @status)
       ON CONFLICT(id) DO UPDATE SET
@@ -16,74 +30,74 @@ export function createQueries(db: Database.Database): Queries {
     `),
 
     // artworks
-    getArtworks: db.prepare("SELECT * FROM artworks ORDER BY created_at DESC LIMIT ? OFFSET ?"),
-    getArtwork: db.prepare("SELECT * FROM artworks WHERE id = ?"),
-    getArtworkCount: db.prepare("SELECT COUNT(*) as count FROM artworks"),
-    insertArtwork: db.prepare(`
+    getArtworks: query(db, "SELECT * FROM artworks ORDER BY created_at DESC LIMIT ? OFFSET ?"),
+    getArtwork: query(db, "SELECT * FROM artworks WHERE id = ?"),
+    getArtworkCount: query(db, "SELECT COUNT(*) as count FROM artworks"),
+    insertArtwork: query(db, `
       INSERT INTO artworks (token_id, title, ipfs_uri, image_url, metadata, snapshot, decision)
       VALUES (@token_id, @title, @ipfs_uri, @image_url, @metadata, @snapshot, @decision)
     `),
 
     // auctions
-    getAuctions: db.prepare("SELECT * FROM auctions ORDER BY start_time DESC LIMIT ? OFFSET ?"),
-    getActiveAuctions: db.prepare("SELECT * FROM auctions WHERE status = 'active'"),
-    getAuction: db.prepare("SELECT * FROM auctions WHERE id = ?"),
-    insertAuction: db.prepare(`
+    getAuctions: query(db, "SELECT * FROM auctions ORDER BY start_time DESC LIMIT ? OFFSET ?"),
+    getActiveAuctions: query(db, "SELECT * FROM auctions WHERE status = 'active'"),
+    getAuction: query(db, "SELECT * FROM auctions WHERE id = ?"),
+    insertAuction: query(db, `
       INSERT INTO auctions (id, artwork_id, token_id, reserve_price, status, start_time, end_time, tx_hash)
       VALUES (@id, @artwork_id, @token_id, @reserve_price, @status, @start_time, @end_time, @tx_hash)
     `),
-    updateAuction: db.prepare(`
+    updateAuction: query(db, `
       UPDATE auctions SET current_bid = @current_bid, current_bidder = @current_bidder,
         winner = @winner, final_price = @final_price, status = @status WHERE id = @id
     `),
 
     // bids
-    getBidsForAuction: db.prepare("SELECT * FROM bids WHERE auction_id = ? ORDER BY timestamp DESC"),
-    getBidsForArtwork: db.prepare(`
+    getBidsForAuction: query(db, "SELECT * FROM bids WHERE auction_id = ? ORDER BY timestamp DESC"),
+    getBidsForArtwork: query(db, `
       SELECT b.* FROM bids b
       JOIN auctions a ON a.id = b.auction_id
       WHERE a.artwork_id = ?
       ORDER BY b.timestamp DESC
     `),
-    insertBid: db.prepare(`
+    insertBid: query(db, `
       INSERT INTO bids (auction_id, collector_id, collector_name, amount, tx_hash)
       VALUES (@auction_id, @collector_id, @collector_name, @amount, @tx_hash)
     `),
 
     // transactions
-    getTransactions: db.prepare("SELECT * FROM transactions WHERE agent_id = ? ORDER BY timestamp DESC LIMIT ?"),
-    insertTransaction: db.prepare(`
+    getTransactions: query(db, "SELECT * FROM transactions WHERE agent_id = ? ORDER BY timestamp DESC LIMIT ?"),
+    insertTransaction: query(db, `
       INSERT INTO transactions (agent_id, type, tx_hash, gas_used)
       VALUES (@agent_id, @type, @tx_hash, @gas_used)
     `),
 
     // cycle logs
-    getLogs: db.prepare(`
+    getLogs: query(db, `
       SELECT * FROM cycle_logs
       WHERE CASE WHEN @agent_id = 'all' THEN 1 ELSE agent_id = @agent_id END
       ORDER BY timestamp DESC LIMIT @limit OFFSET @offset
     `),
-    getLogCount: db.prepare(`
+    getLogCount: query(db, `
       SELECT COUNT(*) as count FROM cycle_logs
       WHERE CASE WHEN @agent_id = 'all' THEN 1 ELSE agent_id = @agent_id END
     `),
-    insertLog: db.prepare(`
+    insertLog: query(db, `
       INSERT INTO cycle_logs (agent_id, cycle_id, phase, log_data)
       VALUES (@agent_id, @cycle_id, @phase, @log_data)
     `),
-    getRecentLogs: db.prepare("SELECT * FROM cycle_logs WHERE id > ? ORDER BY id ASC"),
+    getRecentLogs: query(db, "SELECT * FROM cycle_logs WHERE id > ? ORDER BY id ASC"),
 
     // economy
-    getPriceTrends: db.prepare(`
+    getPriceTrends: query(db, `
       SELECT a.created_at, a.title, au.reserve_price, au.current_bid, au.current_bidder, au.final_price, au.status
       FROM artworks a LEFT JOIN auctions au ON au.artwork_id = a.id
       ORDER BY a.created_at ASC
     `),
-    getCollectorStats: db.prepare(`
+    getCollectorStats: query(db, `
       SELECT collector_name, COUNT(*) as bid_count, SUM(CAST(amount AS REAL)) as total_spent
       FROM bids GROUP BY collector_name
     `),
-    getEarningsByDay: db.prepare(`
+    getEarningsByDay: query(db, `
       SELECT date(a.created_at) as day, COUNT(*) as sales, SUM(CAST(au.final_price AS REAL)) as revenue
       FROM auctions au JOIN artworks a ON au.artwork_id = a.id
       WHERE au.status = 'settled' AND au.final_price IS NOT NULL

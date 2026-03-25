@@ -1,15 +1,15 @@
 import { Router } from "express";
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
 import { createQueries } from "../db/queries.js";
 
-export function economyRouter(db: Database.Database): Router {
+export function economyRouter(db: Client): Router {
   const router = Router();
   const q = createQueries(db);
 
-  router.get("/", (_req, res) => {
-    const priceTrends = q.getPriceTrends.all();
-    const collectorStats = q.getCollectorStats.all();
-    const earningsByDay = q.getEarningsByDay.all();
+  router.get("/", async (_req, res) => {
+    const priceTrends = await q.getPriceTrends.all();
+    const collectorStats = await q.getCollectorStats.all();
+    const earningsByDay = await q.getEarningsByDay.all();
 
     res.json({ priceTrends, collectorStats, earningsByDay });
   });

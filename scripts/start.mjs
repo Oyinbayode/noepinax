@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, "..");
-const apiPort = process.env.API_PORT || "10000";
+const apiPort = process.env.PORT || process.env.API_PORT || "8080";
 const apiUrl = process.env.API_URL || `http://localhost:${apiPort}`;
 const processes = [];
 

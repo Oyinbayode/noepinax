@@ -1,18 +1,18 @@
 import { Router } from "express";
-import type Database from "better-sqlite3";
-import { createQueries } from "../db/queries.js";
+import type { Client } from "@libsql/client";
+import { createQueries, query } from "../db/queries.js";
 
-export function artworksRouter(db: Database.Database): Router {
+export function artworksRouter(db: Client): Router {
   const router = Router();
   const q = createQueries(db);
 
-  router.get("/", (req, res) => {
+  router.get("/", async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const offset = (page - 1) * limit;
 
-    const artworks = q.getArtworks.all(limit, offset);
-    const { count } = q.getArtworkCount.get() as { count: number };
+    const artworks = await q.getArtworks.all(limit, offset);
+    const { count } = await q.getArtworkCount.get();
 
     res.json({
       artworks: artworks.map(parseJsonFields),
@@ -22,17 +22,17 @@ export function artworksRouter(db: Database.Database): Router {
     });
   });
 
-  router.get("/token/:tokenId", (req, res) => {
-    const row = db.prepare("SELECT * FROM artworks WHERE token_id = ?").get(req.params.tokenId);
+  router.get("/token/:tokenId", async (req, res) => {
+    const row = await query(db, "SELECT * FROM artworks WHERE token_id = ?").get(req.params.tokenId);
     if (!row) return res.status(404).json({ error: "Not found" });
     res.json(parseJsonFields(row));
   });
 
-  router.get("/:id", (req, res) => {
-    const artwork = q.getArtwork.get(req.params.id);
+  router.get("/:id", async (req, res) => {
+    const artwork = await q.getArtwork.get(req.params.id);
     if (!artwork) return res.status(404).json({ error: "Artwork not found" });
 
-    const bids = q.getBidsForArtwork.all(req.params.id);
+    const bids = await q.getBidsForArtwork.all(req.params.id);
     res.json({ ...parseJsonFields(artwork), bids });
   });
 

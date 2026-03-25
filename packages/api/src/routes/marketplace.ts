@@ -1,20 +1,21 @@
 import { Router } from "express";
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
+import { query } from "../db/queries.js";
 
-export function marketplaceRouter(db: Database.Database): Router {
+export function marketplaceRouter(db: Client): Router {
   const router = Router();
 
-  router.get("/", (req, res) => {
-    const status = req.query.status || "active";
+  router.get("/", async (req, res) => {
+    const status = (req.query.status as string) || "active";
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 12, 50);
     const offset = (page - 1) * limit;
 
-    const { count } = db.prepare(
+    const { count } = await query(db,
       "SELECT COUNT(*) as count FROM marketplace_listings ml LEFT JOIN artworks a ON a.token_id = ml.token_id WHERE ml.status = ? AND a.title IS NOT NULL"
-    ).get(status) as { count: number };
+    ).get(status);
 
-    const listings = db.prepare(`
+    const listings = await query(db, `
       SELECT ml.*, a.title, a.image_url, a.metadata, a.decision
       FROM marketplace_listings ml
       LEFT JOIN artworks a ON a.token_id = ml.token_id
@@ -32,16 +33,16 @@ export function marketplaceRouter(db: Database.Database): Router {
     res.json({ listings: parsed, total: count, page, pages: Math.ceil(count / limit) });
   });
 
-  router.get("/sold", (req, res) => {
+  router.get("/sold", async (req, res) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
     const offset = (page - 1) * limit;
 
-    const { count } = db.prepare(
+    const { count } = await query(db,
       "SELECT COUNT(*) as count FROM marketplace_listings WHERE status = 'sold'"
-    ).get() as { count: number };
+    ).get();
 
-    const sold = db.prepare(`
+    const sold = await query(db, `
       SELECT ml.*, a.title, a.image_url
       FROM marketplace_listings ml
       LEFT JOIN artworks a ON a.token_id = ml.token_id

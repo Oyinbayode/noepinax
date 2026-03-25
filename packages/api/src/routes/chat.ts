@@ -1,15 +1,13 @@
 import { Router } from "express";
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
+import { query } from "../db/queries.js";
 
-export function chatRouter(db: Database.Database): Router {
+export function chatRouter(db: Client): Router {
   const router = Router();
 
-  router.get("/", (req, res) => {
+  router.get("/", async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-    const messages = db
-      .prepare("SELECT * FROM chat_messages ORDER BY id DESC LIMIT ?")
-      .all(limit)
-      .reverse();
+    const messages = (await query(db, "SELECT * FROM chat_messages ORDER BY id DESC LIMIT ?").all(limit)).reverse();
     res.json({ messages });
   });
 

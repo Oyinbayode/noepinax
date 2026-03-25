@@ -1,11 +1,12 @@
 import { Router } from "express";
-import type Database from "better-sqlite3";
+import type { Client } from "@libsql/client";
+import { query } from "../db/queries.js";
 
-export function budgetRouter(db: Database.Database): Router {
+export function budgetRouter(db: Client): Router {
   const router = Router();
 
-  router.get("/", (_req, res) => {
-    const gasByAgent = db.prepare(`
+  router.get("/", async (_req, res) => {
+    const gasByAgent = await query(db, `
       SELECT agent_id, SUM(CAST(gas_used AS REAL)) as total_gas, COUNT(*) as tx_count
       FROM transactions GROUP BY agent_id
     `).all();
