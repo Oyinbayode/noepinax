@@ -140,6 +140,11 @@ write_files:
       Restart=always
       RestartSec=10
 
+      # The first start has to docker pull a ~280MB image over the e2-micro's
+      # throttled network — well past systemd's default 90s start timeout.
+      # Subsequent starts reuse the cached image and finish in seconds.
+      TimeoutStartSec=600
+
       # Tell docker to read its config (and credHelpers) from a writable
       # location — /root/.docker is read-only on COS.
       Environment=DOCKER_CONFIG=/var/lib/cloud/noepinax/docker
