@@ -28,7 +28,7 @@ write_files:
   # ------------------------------------------------------------------
   # Secret fetcher. Runs at boot, idempotent (rewrites the env file).
   # ------------------------------------------------------------------
-  - path: /var/lib/noepinax/fetch-config.sh
+  - path: /var/lib/cloud/noepinax/fetch-config.sh
     permissions: "0755"
     owner: root:root
     content: |
@@ -127,7 +127,10 @@ write_files:
 
       # Refresh secrets + config from Secret Manager / metadata before each
       # (re)start, so rotating a secret = `systemctl restart noepinax-agents`.
-      ExecStartPre=/var/lib/noepinax/fetch-config.sh
+      # Invoked via /bin/bash to bypass noexec mounts — most writable paths
+      # on Container-Optimized OS are mounted noexec, so we interpret the
+      # script rather than execve()'ing it.
+      ExecStartPre=/bin/bash /var/lib/cloud/noepinax/fetch-config.sh
 
       # Pull the latest image tag — same `:latest` rebuild gets picked up on
       # restart with no instance recreate. (Use a versioned tag if you'd
@@ -149,7 +152,7 @@ write_files:
   # Tiny shim that resolves ${IMAGE} in the unit at boot — the systemd
   # unit can't read instance metadata directly, so we render it once.
   # ------------------------------------------------------------------
-  - path: /var/lib/noepinax/render-unit.sh
+  - path: /var/lib/cloud/noepinax/render-unit.sh
     permissions: "0755"
     owner: root:root
     content: |
@@ -165,12 +168,14 @@ write_files:
       sed -i "s|\${IMAGE}|$IMAGE|g" /etc/systemd/system/noepinax-agents.service
 
 runcmd:
-  # Configure docker for the Artifact Registry host so `docker pull` works.
-  # COS ships with docker-credential-gcr; we just need to register the AR
-  # registries we'll pull from. Adjust the region list if you push elsewhere.
-  - docker-credential-gcr configure-docker --registries=us-central1-docker.pkg.dev,us-east1-docker.pkg.dev,us-west1-docker.pkg.dev,europe-west1-docker.pkg.dev
-
-  - /var/lib/noepinax/render-unit.sh
+  # No docker-credential-gcr configure-docker call needed: Container-Optimized
+  # OS pre-registers the Artifact Registry credential helper for *-docker.pkg.dev
+  # automatically, and /root is read-only on COS so the configure-docker call
+  # would fail anyway.
+  #
+  # Scripts are invoked via /bin/bash because most writable paths on COS
+  # are mounted noexec — we read+interpret the file rather than execve() it.
+  - /bin/bash /var/lib/cloud/noepinax/render-unit.sh
   - systemctl daemon-reload
   - systemctl enable noepinax-agents.service
   - systemctl start noepinax-agents.service
