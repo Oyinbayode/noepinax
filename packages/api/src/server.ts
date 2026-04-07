@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { resolve } from "path";
 dotenv.config({ path: resolve(process.cwd(), ".env"), override: false });
 dotenv.config({ path: resolve(process.cwd(), "../../.env"), override: false });
+import { timingSafeEqual } from "crypto";
 import express from "express";
 import cors from "cors";
 import expressWs from "express-ws";
@@ -19,6 +20,13 @@ import { EventBroadcaster } from "./ws/events.js";
 
 const port = parseInt(process.env.API_PORT || "3001");
 
+process.on("unhandledRejection", (reason) => {
+  console.error("[noepinax-api] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[noepinax-api] uncaughtException:", err);
+});
+
 const { app } = expressWs(express());
 app.use(cors());
 app.use(express.json());
@@ -26,6 +34,36 @@ app.use(express.json());
 const db = await initDb();
 const broadcaster = new EventBroadcaster(db);
 await broadcaster.init();
+
+// Health check — unauthenticated, used by Cloud Run, GCE agent host, and the
+// dashboard to detect API liveness without depending on the WebSocket.
+app.get("/healthz", (_req, res) => res.json({ ok: true }));
+
+// Shared-secret auth for /internal/*. These endpoints used to live on
+// localhost inside the same container as the agents; once the agents moved
+// off-box they traverse the public internet, so anyone could otherwise post
+// fake bids/artworks/chat. Fail closed in production, warn-and-allow in dev.
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
+if (!INTERNAL_TOKEN) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("[noepinax-api] INTERNAL_API_TOKEN is required in production");
+    process.exit(1);
+  }
+  console.warn("[noepinax-api] INTERNAL_API_TOKEN unset — /internal/* is OPEN (dev only)");
+}
+
+const expectedTokenBuf = INTERNAL_TOKEN ? Buffer.from(INTERNAL_TOKEN) : null;
+app.use("/internal", (req, res, next) => {
+  if (!expectedTokenBuf) return next();
+  const header = req.get("authorization") || "";
+  const presented = header.startsWith("Bearer ") ? header.slice(7) : "";
+  const presentedBuf = Buffer.from(presented);
+  if (presentedBuf.length !== expectedTokenBuf.length ||
+      !timingSafeEqual(presentedBuf, expectedTokenBuf)) {
+    return res.status(401).json({ ok: false, error: "unauthorized" });
+  }
+  next();
+});
 
 app.use("/api/agents", agentsRouter(db));
 app.use("/api/artworks", artworksRouter(db));
@@ -39,6 +77,14 @@ app.use("/api/marketplace", marketplaceRouter(db));
 app.ws("/ws", (ws) => {
   broadcaster.addClient(ws);
   ws.send(JSON.stringify({ event: "connected", timestamp: new Date().toISOString() }));
+  // Client sends "ping" every 25s to keep Cloud Run's frontend from reaping
+  // the idle connection between agent events. Echo back so the client can
+  // also detect a one-way break.
+  ws.on("message", (data) => {
+    if (data.toString() === "ping") {
+      try { ws.send("pong"); } catch {}
+    }
+  });
 });
 
 // internal endpoints for agents to push data
@@ -90,13 +136,22 @@ app.post("/internal/auction", async (req, res) => {
 
 app.post("/internal/bid", async (req, res) => {
   const { auction_id, collector_id, collector_name, amount, tx_hash } = req.body;
+  const aid = String(auction_id);
+
+  // Collectors observe auctions directly from chain — the auction row may not
+  // exist locally yet (race with /internal/auction, or auction predates this DB).
+  // Upsert a stub so the FK from bids.auction_id holds.
+  await query(db,
+    "INSERT OR IGNORE INTO auctions (id, reserve_price, status, start_time, end_time) VALUES (?, '0', 'active', '', '')"
+  ).run(aid);
+
   await query(db,
     "INSERT INTO bids (auction_id, collector_id, collector_name, amount, tx_hash) VALUES (?, ?, ?, ?, ?)"
-  ).run(String(auction_id), collector_id, collector_name, amount, tx_hash || "");
+  ).run(aid, collector_id, collector_name, amount, tx_hash || "");
 
   await query(db,
     "UPDATE auctions SET current_bid = ?, current_bidder = ? WHERE id = ?"
-  ).run(amount, collector_name, String(auction_id));
+  ).run(amount, collector_name, aid);
 
   res.json({ ok: true });
 });
@@ -165,6 +220,11 @@ app.post("/internal/settle", async (req, res) => {
     } catch {}
   }
 })();
+
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error("[noepinax-api] handler error:", err);
+  if (!res.headersSent) res.status(500).json({ ok: false, error: err?.message || "internal error" });
+});
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`[noepinax-api] running on port ${port}`);

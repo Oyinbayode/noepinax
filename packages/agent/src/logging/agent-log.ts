@@ -68,16 +68,21 @@ export class AgentLogger {
 
   private pushToApi(entry: CycleLog): void {
     const apiUrl = process.env.API_URL || "http://localhost:3001";
+    const token = process.env.INTERNAL_API_TOKEN;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     fetch(`${apiUrl}/internal/events`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         agent_id: entry.agent_id,
         cycle_id: entry.cycle_id,
         phase: entry.phase,
         log_data: entry,
       }),
-    }).catch(() => {});
+    }).catch((err) => {
+      this.console.warn({ err: err instanceof Error ? err.message : String(err) }, "event push failed");
+    });
   }
 
   flush(): void {

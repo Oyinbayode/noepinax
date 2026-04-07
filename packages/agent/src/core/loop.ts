@@ -122,14 +122,24 @@ export class AgentLoop {
 
   private async pushToApi(path: string, data: unknown): Promise<any> {
     const apiUrl = process.env.API_URL || "http://localhost:3001";
+    const token = process.env.INTERNAL_API_TOKEN;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
     try {
       const res = await fetch(`${apiUrl}${path}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(data),
       });
-      return res.ok ? await res.json() : null;
-    } catch {
+      if (!res.ok) {
+        // Surface auth/network failures instead of swallowing them — silent
+        // /internal POSTs were exactly what made the previous outage invisible.
+        this.logger.console.warn({ path, status: res.status }, "pushToApi non-OK");
+        return null;
+      }
+      return await res.json();
+    } catch (err) {
+      this.logger.console.warn({ path, err: err instanceof Error ? err.message : String(err) }, "pushToApi failed");
       return null;
     }
   }
