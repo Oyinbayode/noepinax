@@ -68,7 +68,7 @@ export class AgentLogger {
 
   private pushToApi(entry: CycleLog): void {
     const apiUrl = process.env.API_URL || "http://localhost:3001";
-    const token = process.env.INTERNAL_API_TOKEN;
+    const token = process.env.INTERNAL_API_TOKEN?.trim();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     fetch(`${apiUrl}/internal/events`, {

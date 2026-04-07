@@ -26,6 +26,21 @@
 
 write_files:
   # ------------------------------------------------------------------
+  # Docker credential config for Artifact Registry. COS does NOT
+  # pre-configure auth for *-docker.pkg.dev — `docker pull` makes an
+  # unauthenticated request and fails. Telling docker to use the
+  # docker-credential-gcr helper (which is preinstalled on COS and
+  # fetches a token from the metadata server) fixes it. Lives under
+  # /var/lib/cloud/ because /root is read-only on COS, and we point
+  # docker at it via DOCKER_CONFIG in the systemd unit.
+  # ------------------------------------------------------------------
+  - path: /var/lib/cloud/noepinax/docker/config.json
+    permissions: "0644"
+    owner: root:root
+    content: |
+      {"credHelpers":{"us-central1-docker.pkg.dev":"gcr"}}
+
+  # ------------------------------------------------------------------
   # Secret fetcher. Runs at boot, idempotent (rewrites the env file).
   # ------------------------------------------------------------------
   - path: /var/lib/cloud/noepinax/fetch-config.sh
@@ -124,6 +139,10 @@ write_files:
       Type=simple
       Restart=always
       RestartSec=10
+
+      # Tell docker to read its config (and credHelpers) from a writable
+      # location — /root/.docker is read-only on COS.
+      Environment=DOCKER_CONFIG=/var/lib/cloud/noepinax/docker
 
       # Refresh secrets + config from Secret Manager / metadata before each
       # (re)start, so rotating a secret = `systemctl restart noepinax-agents`.

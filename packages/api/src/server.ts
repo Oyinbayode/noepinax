@@ -45,7 +45,11 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // localhost inside the same container as the agents; once the agents moved
 // off-box they traverse the public internet, so anyone could otherwise post
 // fake bids/artworks/chat. Fail closed in production, warn-and-allow in dev.
-const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
+// .trim() defends against the classic `openssl rand -hex 32 | gcloud secrets
+// create` footgun: openssl appends a newline, gcloud stores it verbatim, and
+// a secret-mounted env var keeps the newline while a docker --env-file value
+// strips it — the constant-time compare then fails on length.
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN?.trim();
 if (!INTERNAL_TOKEN) {
   if (process.env.NODE_ENV === "production") {
     console.error("[noepinax-api] INTERNAL_API_TOKEN is required in production");

@@ -122,7 +122,7 @@ export class AgentLoop {
 
   private async pushToApi(path: string, data: unknown): Promise<any> {
     const apiUrl = process.env.API_URL || "http://localhost:3001";
-    const token = process.env.INTERNAL_API_TOKEN;
+    const token = process.env.INTERNAL_API_TOKEN?.trim();
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
     try {
