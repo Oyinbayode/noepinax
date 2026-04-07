@@ -35,9 +35,11 @@ const db = await initDb();
 const broadcaster = new EventBroadcaster(db);
 await broadcaster.init();
 
-// Health check — unauthenticated, used by Cloud Run, GCE agent host, and the
-// dashboard to detect API liveness without depending on the WebSocket.
-app.get("/healthz", (_req, res) => res.json({ ok: true }));
+// Health check — unauthenticated, used by the GCE agent host and the dashboard
+// to detect API liveness without depending on the WebSocket. Note: avoid
+// /healthz — Cloud Run's Google Frontend reserves that path and never proxies
+// it to the container.
+app.get("/health", (_req, res) => res.json({ ok: true }));
 
 // Shared-secret auth for /internal/*. These endpoints used to live on
 // localhost inside the same container as the agents; once the agents moved

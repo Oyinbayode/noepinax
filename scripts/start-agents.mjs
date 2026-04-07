@@ -59,7 +59,7 @@ function spawnProc(label, cmd, args, cwd, extraEnv = {}) {
 async function waitForApi(maxRetries = 60, delayMs = 2000) {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      const res = await fetch(`${apiUrl}/healthz`);
+      const res = await fetch(`${apiUrl}/health`);
       if (res.ok) {
         console.log("[start-agents] API is ready");
         return;
